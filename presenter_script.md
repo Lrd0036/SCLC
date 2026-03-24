@@ -35,15 +35,9 @@
 ---
 
 ## STAGE 2 — THE PIVOT
-
-**On Screen (Map):** Camera centers on HQ. A red ring expands outward from HQ — the attacker scanning the OT network. The IT/OT boundary line appears, labeled 'BREACHED.'
-
-**On Screen (Terminal):** Attacker checks route tables, finds the OT subnet (10.20.0.0/24) is directly routable. Runs a full `nmap` scan targeting Modbus (502), S7comm (102), and EtherNet/IP (44818). Discovers 3 PLCs. Fingerprints them — Schneider Modicon M340 and Allen-Bradley ControlLogix, both running outdated firmware, both accepting unauthenticated remote writes.
-
 **You Say:**
 
 > "This is where it gets dangerous. The attacker checks the route table and discovers something critical — the OT network, where the industrial equipment lives, is directly reachable from the IT network. There's no firewall, no segmentation, no DMZ. One flat network.
->
 > They run nmap — a network scanner — targeting port 502, which is the Modbus protocol used by industrial control systems. Think of it as calling every phone extension in a building to see who picks up.
 >
 > Three devices answer. Schneider Modicon M340 PLCs at both substations and an Allen-Bradley ControlLogix at the water treatment plant. The scan reveals two critical findings: the firmware is outdated by multiple versions, and — most importantly — all three PLCs accept unauthenticated remote commands. Anyone who can reach them can write to them. No password. No certificate. Nothing."
@@ -51,10 +45,6 @@
 ---
 
 ## STAGE 3 — THE ILLUSION
-
-**On Screen (Map):** Camera zooms tight on the Royal Duke HQ node. The node flickers between green (what operators see) and red (reality). Periodic glitch frames flash red.
-
-**On Screen (Terminal):** Attacker displays and runs `hmi_spoof.py` — a Python script using `pymodbus`. Reads the real pressure (72 PSI), writes 75 PSI to the HMI override register, locks the HMI refresh. A box shows the split: operator sees "75 PSI — NORMAL" while reality is "climbing."
 
 **You Say:**
 
@@ -70,10 +60,6 @@
 
 ## STAGE 4 — THE PHYSICS BREACH
 
-**On Screen (Map):** Camera pulls back to show HQ connecting to all three infrastructure nodes. Red attack traces animate from HQ to Substation Ashburn, Substation South, and Water Treatment. All nodes turn red with pulsing rings.
-
-**On Screen (Terminal):** Attacker displays and executes `plc_override.py`. The script loops through all three PLCs, disabling safety interlocks (coil 5), high-temp emergency shutoffs (coil 10), and killing both water pumps (coils 1 & 2) at each site. Summary: 3 PLCs compromised, 6 safety interlocks disabled, 6 cooling pumps offline.
-
 **You Say:**
 
 > "We've reached the point of no return. The attacker is no longer stealing data. They're no longer even in the IT world. They are issuing direct commands to physical equipment.
@@ -85,10 +71,6 @@
 ---
 
 ## STAGE 5 — THE FALLOUT
-
-**On Screen (Map):** Camera zooms all the way out. Red traces extend from substations and water treatment to all three DC campuses. The cyan data center dots flash red and go dark one by one — Ashburn first, then Manassas, then Tysons. The map progressively dims. After ~16 seconds, the cascade overlay appears with impact statistics.
-
-**On Screen (Terminal):** SCADA Alert Monitor shows multi-site critical events. Thermal gauges fill up in real time — 22°C → 28°C → 35°C → 42°C → 45°C SHUTDOWN. Each site reports auto-emergency shutdown. Final box: 4,140 MW at risk, 300+ facilities, $1M+/hr losses, 12-72 hour recovery.
 
 **You Say:**
 
@@ -102,8 +84,6 @@
 >
 > The cloud in Northern Virginia is officially offline. And it started with one weak password on a vendor VPN."
 
----
-
 ## TRANSITION TO MITIGATIONS
 
 After Stage 5, dismiss the cascade overlay with **Escape** or **CLOSE**, then transition to your mitigation/recommendation portion of the presentation.
@@ -111,9 +91,6 @@ After Stage 5, dismiss the cascade overlay with **Escape** or **CLOSE**, then tr
 **You Say:**
 
 > "That's the attack. Five stages, from a brute-forced password to a regional blackout. Now let's talk about how Royal Duke stops this — and what it actually costs."
-
----
-
 ## KEY TALKING POINTS (if asked)
 
 - **Why Modbus?** — It was designed in 1979 for serial communication. No authentication, no encryption. It was never meant to be on a network. But it is.
