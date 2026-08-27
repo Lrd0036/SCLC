@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://royal-duke-cyber-range.lrd01.chatgpt.site'),
   title: 'Royal Duke Cyber Range | Auburn AIS',
   description: 'An interactive cyber-physical mission showing how enterprise compromise can propagate into industrial operations.',
   openGraph: {
