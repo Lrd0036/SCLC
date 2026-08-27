@@ -6,7 +6,7 @@ An interactive cyber-physical briefing. A vendor session becomes an engineering 
 
 The map is a documentary. The optional Docker range is a live process model. Neither one is a production plant.
 
-[**Open the film**](https://royal-duke-cyber-range.lrd01.chatgpt.site) · [Attack surface](#attack-surface--fidelity) · [Live OT range](#live-ot-range)
+[Attack surface](#attack-surface--fidelity) · [Live OT range](#live-ot-range)
 
 ```
 VENDOR ──► ENTERPRISE / EMS ──► WATER PLC ──► 69 LOUDOUN HALLS
@@ -294,7 +294,7 @@ On-screen: **Play briefing**, **Advance**, chapter rail, **Defend**, **Attack su
 
 ## Security
 
-This is a defensive exhibit. It is not a targeting aid and not a packager of exploits.
+This is a defensive exhibit. It is not a targeting aid and not a packager of exploits. 
 
 - Do not commit `.env`, `.dev.vars`, keys, or certs. See `.gitignore`.
 - The range controller binds on the host as `127.0.0.1:9400` only.
@@ -316,8 +316,6 @@ If you attach a range URL, it must be `http:` or `https:`. The film will not fol
 | Beacons | Three.js custom layer on the map GL context |
 | Type | Share Tech Mono |
 | Range | OT-sim (Modbus TCP, DNP3 TCP) + Node controller |
-| Hosting | OpenAI Sites / Cloudflare Workers |
-
 ---
 
 ## Credits
@@ -327,3 +325,10 @@ Auburn AIS · Royal Duke Cyber Range
 Process model built on [OT-sim](https://github.com/patsec/ot-sim) (GPL-3.0). Hall locations compiled from public mapping directories. Royal Duke, the water plant, and the vendor site are a scenario overlay.
 
 The documentary map is a projection. Production topology, Siemens firmware behavior, and real facility control authority are outside its evidence boundary.
+
+Also, **Countdown to Zero Day: Stuxnet and the Launch of the World's First Digital Weapon** was an excellent read, and this is mostly where I got the idea from. 
+
+Are we ever going to stop hearing about Seimens devices being vulnerable? 
+
+Probably not. Goes for all ICS. ¯\_(ツ)_/¯ was the business need to be secure, or was it to get power and water to locations? 
+
