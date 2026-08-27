@@ -42,7 +42,7 @@ Northern Virginia’s digital load does not live on the internet. It lives on po
 
 Royal Duke is that room: a fictional energy-management and cooling operator sitting in Loudoun County. The film follows one night in which a trusted vendor session is treated as an employee, the engineering enclave becomes reachable, the HMI is frozen at **62 PSI**, and an allowlisted write de-energizes pump **P-101**. Independent telemetry falls through **52 PSI**. Campus cooling trips. Sixty-nine public data-center halls go dark on the map.
 
-The argument is not “hackers can ping a PLC.” The argument is that **identity, path, knowledge, view integrity, write authority, and physics** are separate gates. Network visibility never satisfies the chain.
+If you know me, you know how much I hate network. Unfortunately, network is how stuff like this happens. I love to say "I don't care about network security" but how do you get access to systems that can manifest an attack in... reality? 
 
 ---
 
@@ -335,3 +335,5 @@ Probably not. Goes for all ICS. ¯\_(ツ)_/¯ was the business need to be secure
 Is Royal Duke an absolutely, 100% made up company? Yes. 
 
 However, is this a realistic attack scenario? I don't know. Go read Coundown to Zero Day, or I guess go read one of the ICS statements that CISA bombards us with. 
+
+I know everyone's tired of it, but here's a recent CISA advisory about this. (https://www.cisa.gov/news-events/cybersecurity-advisories/aa26-231a)
