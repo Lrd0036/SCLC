@@ -332,3 +332,6 @@ Are we ever going to stop hearing about Seimens devices being vulnerable?
 
 Probably not. Goes for all ICS. ¯\_(ツ)_/¯ was the business need to be secure, or was it to get power and water to locations? 
 
+Is Royal Duke an absolutely, 100% made up company? Yes. 
+
+However, is this a realistic attack scenario? I don't know. Go read Coundown to Zero Day, or I guess go read one of the ICS statements that CISA bombards us with. 
