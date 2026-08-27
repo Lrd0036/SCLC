@@ -80,3 +80,5 @@ Thumbs.db
 
 # inspected upstream simulator checkout; the integration pins its image/source
 /range/vendor/
+
+/.openai/
