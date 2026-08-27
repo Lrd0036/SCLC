@@ -38,7 +38,7 @@ identity      path + lie         coil write      physics
 
 ## Premise
 
-Northern Virginia’s digital load does not live on the internet. It lives on power, water, and a room the public never sees.
+Northern Virginia’s digital load does not live on the internet. It lives on power, water, and a room the public never sees. 
 
 Royal Duke is that room: a fictional energy-management and cooling operator sitting in Loudoun County. The film follows one night in which a trusted vendor session is treated as an employee, the engineering enclave becomes reachable, the HMI is frozen at **62 PSI**, and an allowlisted write de-energizes pump **P-101**. Independent telemetry falls through **52 PSI**. Campus cooling trips. Sixty-nine public data-center halls go dark on the map.
 
