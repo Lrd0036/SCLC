@@ -17,6 +17,7 @@
 .dev.vars.*
 !.dev.vars.example
 *.pem
+*.tsbuildinfo
 *.key
 *.p12
 *.pfx

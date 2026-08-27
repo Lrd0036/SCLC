@@ -26,6 +26,7 @@ controller is published, and only on `127.0.0.1:9400`.
 docker compose -f range/royal-duke/docker-compose.yml up -d
 curl -fsS http://127.0.0.1:9400/health
 curl -fsS http://127.0.0.1:9400/api/v1/state | jq
+npm run range:smoke
 ```
 
 Open the local site at `http://localhost:3000/?range=http://127.0.0.1:9400`.
